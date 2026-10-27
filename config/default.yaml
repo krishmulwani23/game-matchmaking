@@ -1,0 +1,29 @@
+# Matchmaking Optimization - Default Configuration
+k: 2
+dt: 10.0
+max_wait: 120.0
+gap0: 100.0
+gap_alpha: 1.0
+
+queue_sizes:
+  light: 24
+  medium: 100
+  heavy: 400
+
+seeds:
+  - 42
+  - 43
+  - 44
+  - 45
+  - 46
+
+algorithms:
+  - sort_skill
+  - fifo
+  - greedy_nearest
+  - nsga2
+  - sa_weighted
+  - ga_weighted
+  - hybrid_greedy_ls
+
+use_f3: false
