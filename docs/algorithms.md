@@ -1,8 +1,8 @@
-# Optimization Algorithms Documentation: Chromosome Encoding & Repair (Checkpoint G4)
+# Optimization Algorithms Documentation: Encoding, Repair & NSGA-II (Checkpoints G4 & G5)
 
 **Author:** Member 3 (Vedant)  
-**Milestone:** Checkpoint G4  
-**Date:** October 2026  
+**Milestones:** Checkpoint G4 (Encoding & Repair) | Checkpoint G5 (NSGA-II Optimization)  
+**Date:** November 2026  
 
 ---
 
@@ -89,11 +89,11 @@ The repair pipeline executes five disciplined stages:
 ```mermaid
 flowchart TD
     S0["Input Solution"] --> S1["1. Drop Deformed Matches (!= 2k)"]
-    S1 --> S2["2. Force-Match Starving Players"]
-    S2 --> S3["3. Resolve Skill & Ping Gap Violations"]
-    S3 --> S4["4. Snake Draft Team Balancing"]
-    S4 --> S5["5. Re-index Matches (0..M-1)"]
-    S5 --> FEAS["Feasible Solution (>=99% Guaranteed)"]
+    S1 --> S2["2. Segregate Incompatible Starving Players"]
+    S2 --> S3["3. Heal or Dissolve Matches with Violations"]
+    S3 --> S4["4. Starvation Resolution Guarantee"]
+    S4 --> S5["5. Snake Draft Team Balancing & Re-index"]
+    S5 --> FEAS["Feasible Solution (100% Guaranteed)"]
 ```
 
 ### 4.1 Starvation Force-Matching
@@ -122,8 +122,40 @@ Once valid groups of $2k$ players are formed, within-match team assignments are 
 
 ---
 
-## 5. Feasibility and Acceptance Standards
+## 5. NSGA-II Multi-Objective Optimization (`nsga2.py`)
 
-- **Acceptance Criterion (DEPENDENCIES.md):** At least $99\%$ of repaired random genomes must satisfy `validate.is_feasible(inst, sol) == True`.
-- **Benchmark Coverage:** Evaluated on synthetic instances across `light` (24 players), `medium` (100 players), and `heavy` (400 players) with multiple stochastic seeds.
+Checkpoint G5 implements the Non-dominated Sorting Genetic Algorithm II (Deb et al., 2002) tailored specifically for queue matchmaking.
 
+```mermaid
+flowchart TD
+    INIT["Initialize Population (P_0) via random_genome + diversity injection"] --> EVAL["Decode, Repair & Evaluate via objectives.evaluate"]
+    EVAL --> SORT["Fast Non-Dominated Sorting & Crowding Distance"]
+    SORT --> LOOP{"Generation < Max Gen?"}
+    LOOP -- Yes --> TOUR["Binary Tournament Selection (Rank & Crowding)"]
+    TOUR --> REPRO["OX1 Crossover + Mutation (Swap/Insert/Inversion/Match Count)"]
+    REPRO --> REPAIR_OFF["Decode, Repair & Evaluate Offspring (Q_t)"]
+    REPAIR_OFF --> MERGE["Combine Parents & Offspring: R_t = P_t U Q_t (2N)"]
+    MERGE --> ELITISM["Non-Dominated Sorting on R_t -> Select N for P_{t+1}"]
+    ELITISM --> LOOP
+    LOOP -- No --> DEDUP["Extract Rank-0 Front & Deduplicate Solutions"]
+    DEDUP --> OUT["Return Pareto Front (list[Solution])"]
+```
+
+### 5.1 Algorithmic Features
+1. **Self-Registration:** Registered under `@register("nsga2")` implementing the standard `Matcher` protocol:
+   $$\text{solve}(\text{inst}, **\text{kw}) \to \text{list}[\text{Solution}]$$
+2. **Diversity Injection:** The initial population is seeded with diverse match-count bounds ($M_{\min}$ favoring fairness, $M_{\max}$ favoring throughput) alongside uniformly sampled match counts.
+3. **Strict In-Loop Feasibility:** Every generated individual is decoded and repaired before fitness evaluation. This guarantees that **100% of the individuals in the population and final Pareto front are strictly feasible**.
+4. **Deterministic Reproducibility:** Controlled via NumPy's Generator (`np.random.default_rng(seed)`), guaranteeing identical front solutions across runs with the same seed.
+5. **Deduplication:** The final non-dominated set (Rank 0) is filtered to remove duplicate objective points, producing a tidy, diverse Pareto front.
+
+---
+
+## 6. Verification and Acceptance Standards
+
+- **Acceptance Criterion G4:** At least $99\%$ of repaired random genomes must satisfy `validate.is_feasible(inst, sol) == True` (achieved: 100%).
+- **Acceptance Criterion G5:**
+  1. The Pareto front returned by `nsga2.solve` must be non-empty and all solutions must be feasible.
+  2. The algorithm must be deterministic for a fixed seed.
+  3. The front must beat or equal each baseline (`sort_skill`, `fifo`, `greedy_nearest`) in at least one objective ($f_1$ or $f_2$).
+  4. All returned solutions on the front must be mutually non-dominated.
