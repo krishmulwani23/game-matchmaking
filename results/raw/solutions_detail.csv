@@ -1,0 +1,7 @@
+scenario,seed,algorithm,solution_id,is_feasible,n_matches,f1_imbalance,f2_wait,runtime_sec
+light,42,sort_skill,0,True,5,6.89,145.6,0.00024
+light,42,fifo,0,True,1,27.15,600.5,0.00096
+light,42,greedy_nearest,0,True,3,9.3167,366.0,0.00046
+light,43,sort_skill,0,True,4,10.925,221.6,0.00034
+light,43,fifo,0,True,2,9.475,506.6,0.00038
+light,43,greedy_nearest,0,True,3,24.1333,288.3,0.00048
