@@ -1,0 +1,7 @@
+scenario,seed,algorithm,runtime_sec,n_solutions,feasibility_rate,mean_f1,min_f1,max_f1,mean_f2,min_f2,max_f2,non_dominated_count,hypervolume
+light,42,sort_skill,0.00024,1,1.0,6.89,6.89,6.89,145.6,145.6,145.6,1,0.0
+light,42,fifo,0.00096,1,1.0,27.15,27.15,27.15,600.5,600.5,600.5,1,0.0
+light,42,greedy_nearest,0.00046,1,1.0,9.3167,9.3167,9.3167,366.0,366.0,366.0,1,0.0
+light,43,sort_skill,0.00034,1,1.0,10.925,10.925,10.925,221.6,221.6,221.6,1,0.0
+light,43,fifo,0.00038,1,1.0,9.475,9.475,9.475,506.6,506.6,506.6,1,0.0
+light,43,greedy_nearest,0.00048,1,1.0,24.1333,24.1333,24.1333,288.3,288.3,288.3,1,0.0
