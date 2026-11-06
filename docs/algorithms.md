@@ -1,7 +1,7 @@
-# Optimization Algorithms Documentation: Encoding, Repair & NSGA-II (Checkpoints G4 & G5)
+# Optimization Algorithms Documentation: Encoding, Repair, NSGA-II & Weighted Metaheuristics (Checkpoints G4, G5 & G6)
 
 **Author:** Member 3 (Vedant)  
-**Milestones:** Checkpoint G4 (Encoding & Repair) | Checkpoint G5 (NSGA-II Optimization)  
+**Milestones:** Checkpoint G4 (Encoding & Repair) | Checkpoint G5 (NSGA-II Optimization) | Checkpoint G6 (Weighted Optimization)
 **Date:** November 2026  
 
 ---
@@ -151,7 +151,37 @@ flowchart TD
 
 ---
 
-## 6. Verification and Acceptance Standards
+## 6. Weighted Metaheuristics & Scalarization (`weighted.py`)
+
+Checkpoint G6 implements single-objective metaheuristic optimization for the scalarized tradeoff between fairness and queue latency:
+$$J(\text{sol}, w) = w \cdot f_{1,\text{norm}} + (1 - w) \cdot f_{2,\text{norm}}$$
+
+### 6.1 Baseline-Driven Normalization
+Because skill imbalance ($f_1 \in [0, 50]$) and waiting time ($f_2 \in [0, 5000]$) differ by orders of magnitude, normalization constants are derived directly from baseline matchers (`sort_skill`, `fifo`, `greedy_nearest`, empty, and full matching) evaluated on the same instance:
+$$f_{1,\text{norm}} = \frac{f_1 - f_{1,\min}}{\max(f_{1,\max} - f_{1,\min}, 1.0)}$$
+$$f_{2,\text{norm}} = \frac{f_2 - f_{2,\min}}{\max(f_{2,\max} - f_{2,\min}, 1.0)}$$
+This scales both objectives symmetrically onto $[0, 1]$.
+
+### 6.2 Simulated Annealing (`sa_weighted`)
+Registered under `@register("sa_weighted")`:
+- **Neighborhood Generation:** Stochastically perturbs the permutation via swap, insert, or inversion, alongside match count exploration in $[M_{\min}, M_{\max}]$.
+- **Cooling Schedule:** Geometric cooling $T_{k+1} = \alpha T_k$ with $\alpha = 0.92$, $L = 15$ iterations per temperature step, starting at $T_0 = 1.0$.
+- **Metropolis Criterion:** Accepts candidate solutions with $\Delta J \le 0$ unconditionally, and uphill moves with probability $\exp(-\Delta J / T)$.
+
+### 6.3 Single-Objective Genetic Algorithm (`ga_weighted`)
+Registered under `@register("ga_weighted")`:
+- **Population & Selection:** Evaluates candidate solutions under $J(\text{sol}, w)$, selecting parents via binary tournament selection.
+- **Genetic Variation:** Applies Order Crossover (OX1, $p_c = 0.9$) and permutation mutations ($p_m = 0.25$) coupled with match-count mutations.
+- **Elitism:** Strictly preserves the top 2 best solutions per generation.
+
+### 6.4 Weight Sweep (`sweep_weights`)
+Provides systematic weight grid sweeping:
+$$\text{sweep\_weights}(\text{inst}, \text{weights}=\text{np.linspace}(0, 1, 11), \text{algorithm}=\dots)$$
+Running the optimizer across the weight grid collects a diversified sequence of trade-off solutions approximating the non-dominated Pareto front.
+
+---
+
+## 7. Verification and Acceptance Standards
 
 - **Acceptance Criterion G4:** At least $99\%$ of repaired random genomes must satisfy `validate.is_feasible(inst, sol) == True` (achieved: 100%).
 - **Acceptance Criterion G5:**
@@ -159,3 +189,8 @@ flowchart TD
   2. The algorithm must be deterministic for a fixed seed.
   3. The front must beat or equal each baseline (`sort_skill`, `fifo`, `greedy_nearest`) in at least one objective ($f_1$ or $f_2$).
   4. All returned solutions on the front must be mutually non-dominated.
+- **Acceptance Criterion G6:**
+  1. $w=1.0$ strictly favors minimum imbalance ($f_1$).
+  2. $w=0.0$ strictly favors minimum waiting time ($f_2$).
+  3. Both `sa_weighted` and `ga_weighted` are strictly deterministic for a fixed seed.
+  4. Both algorithms are registered under their standard names and implement the `Matcher` protocol.
