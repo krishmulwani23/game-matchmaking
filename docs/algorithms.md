@@ -1,7 +1,7 @@
-# Optimization Algorithms Documentation: Encoding, Repair & Weighted Metaheuristics (Checkpoints G4 & G6)
+# Optimization Algorithms Documentation: Encoding, Repair, NSGA-II & Weighted Metaheuristics (Checkpoints G4, G5 & G6)
 
 **Author:** Member 3 (Vedant)  
-**Milestones:** Checkpoint G4 (Encoding & Repair) | Checkpoint G6 (Weighted Optimization)  
+**Milestones:** Checkpoint G4 (Encoding & Repair) | Checkpoint G5 (NSGA-II Optimization) | Checkpoint G6 (Weighted Optimization)
 **Date:** November 2026  
 
 ---
@@ -89,11 +89,11 @@ The repair pipeline executes five disciplined stages:
 ```mermaid
 flowchart TD
     S0["Input Solution"] --> S1["1. Drop Deformed Matches (!= 2k)"]
-    S1 --> S2["2. Force-Match Starving Players"]
-    S2 --> S3["3. Resolve Skill & Ping Gap Violations"]
-    S3 --> S4["4. Snake Draft Team Balancing"]
-    S4 --> S5["5. Re-index Matches (0..M-1)"]
-    S5 --> FEAS["Feasible Solution (>=99% Guaranteed)"]
+    S1 --> S2["2. Segregate Incompatible Starving Players"]
+    S2 --> S3["3. Heal or Dissolve Matches with Violations"]
+    S3 --> S4["4. Starvation Resolution Guarantee"]
+    S4 --> S5["5. Snake Draft Team Balancing & Re-index"]
+    S5 --> FEAS["Feasible Solution (100% Guaranteed)"]
 ```
 
 ### 4.1 Starvation Force-Matching
@@ -122,39 +122,73 @@ Once valid groups of $2k$ players are formed, within-match team assignments are 
 
 ---
 
-## 5. Weighted Metaheuristics & Scalarization (`weighted.py`)
+## 5. NSGA-II Multi-Objective Optimization (`nsga2.py`)
+
+Checkpoint G5 implements the Non-dominated Sorting Genetic Algorithm II (Deb et al., 2002) tailored specifically for queue matchmaking.
+
+```mermaid
+flowchart TD
+    INIT["Initialize Population (P_0) via random_genome + diversity injection"] --> EVAL["Decode, Repair & Evaluate via objectives.evaluate"]
+    EVAL --> SORT["Fast Non-Dominated Sorting & Crowding Distance"]
+    SORT --> LOOP{"Generation < Max Gen?"}
+    LOOP -- Yes --> TOUR["Binary Tournament Selection (Rank & Crowding)"]
+    TOUR --> REPRO["OX1 Crossover + Mutation (Swap/Insert/Inversion/Match Count)"]
+    REPRO --> REPAIR_OFF["Decode, Repair & Evaluate Offspring (Q_t)"]
+    REPAIR_OFF --> MERGE["Combine Parents & Offspring: R_t = P_t U Q_t (2N)"]
+    MERGE --> ELITISM["Non-Dominated Sorting on R_t -> Select N for P_{t+1}"]
+    ELITISM --> LOOP
+    LOOP -- No --> DEDUP["Extract Rank-0 Front & Deduplicate Solutions"]
+    DEDUP --> OUT["Return Pareto Front (list[Solution])"]
+```
+
+### 5.1 Algorithmic Features
+1. **Self-Registration:** Registered under `@register("nsga2")` implementing the standard `Matcher` protocol:
+   $$\text{solve}(\text{inst}, **\text{kw}) \to \text{list}[\text{Solution}]$$
+2. **Diversity Injection:** The initial population is seeded with diverse match-count bounds ($M_{\min}$ favoring fairness, $M_{\max}$ favoring throughput) alongside uniformly sampled match counts.
+3. **Strict In-Loop Feasibility:** Every generated individual is decoded and repaired before fitness evaluation. This guarantees that **100% of the individuals in the population and final Pareto front are strictly feasible**.
+4. **Deterministic Reproducibility:** Controlled via NumPy's Generator (`np.random.default_rng(seed)`), guaranteeing identical front solutions across runs with the same seed.
+5. **Deduplication:** The final non-dominated set (Rank 0) is filtered to remove duplicate objective points, producing a tidy, diverse Pareto front.
+
+---
+
+## 6. Weighted Metaheuristics & Scalarization (`weighted.py`)
 
 Checkpoint G6 implements single-objective metaheuristic optimization for the scalarized tradeoff between fairness and queue latency:
 $$J(\text{sol}, w) = w \cdot f_{1,\text{norm}} + (1 - w) \cdot f_{2,\text{norm}}$$
 
-### 5.1 Baseline-Driven Normalization
+### 6.1 Baseline-Driven Normalization
 Because skill imbalance ($f_1 \in [0, 50]$) and waiting time ($f_2 \in [0, 5000]$) differ by orders of magnitude, normalization constants are derived directly from baseline matchers (`sort_skill`, `fifo`, `greedy_nearest`, empty, and full matching) evaluated on the same instance:
 $$f_{1,\text{norm}} = \frac{f_1 - f_{1,\min}}{\max(f_{1,\max} - f_{1,\min}, 1.0)}$$
 $$f_{2,\text{norm}} = \frac{f_2 - f_{2,\min}}{\max(f_{2,\max} - f_{2,\min}, 1.0)}$$
 This scales both objectives symmetrically onto $[0, 1]$.
 
-### 5.2 Simulated Annealing (`sa_weighted`)
+### 6.2 Simulated Annealing (`sa_weighted`)
 Registered under `@register("sa_weighted")`:
 - **Neighborhood Generation:** Stochastically perturbs the permutation via swap, insert, or inversion, alongside match count exploration in $[M_{\min}, M_{\max}]$.
 - **Cooling Schedule:** Geometric cooling $T_{k+1} = \alpha T_k$ with $\alpha = 0.92$, $L = 15$ iterations per temperature step, starting at $T_0 = 1.0$.
 - **Metropolis Criterion:** Accepts candidate solutions with $\Delta J \le 0$ unconditionally, and uphill moves with probability $\exp(-\Delta J / T)$.
 
-### 5.3 Single-Objective Genetic Algorithm (`ga_weighted`)
+### 6.3 Single-Objective Genetic Algorithm (`ga_weighted`)
 Registered under `@register("ga_weighted")`:
 - **Population & Selection:** Evaluates candidate solutions under $J(\text{sol}, w)$, selecting parents via binary tournament selection.
 - **Genetic Variation:** Applies Order Crossover (OX1, $p_c = 0.9$) and permutation mutations ($p_m = 0.25$) coupled with match-count mutations.
 - **Elitism:** Strictly preserves the top 2 best solutions per generation.
 
-### 5.4 Weight Sweep (`sweep_weights`)
+### 6.4 Weight Sweep (`sweep_weights`)
 Provides systematic weight grid sweeping:
 $$\text{sweep\_weights}(\text{inst}, \text{weights}=\text{np.linspace}(0, 1, 11), \text{algorithm}=\dots)$$
 Running the optimizer across the weight grid collects a diversified sequence of trade-off solutions approximating the non-dominated Pareto front.
 
 ---
 
-## 6. Feasibility and Acceptance Standards
+## 7. Verification and Acceptance Standards
 
 - **Acceptance Criterion G4:** At least $99\%$ of repaired random genomes must satisfy `validate.is_feasible(inst, sol) == True` (achieved: 100%).
+- **Acceptance Criterion G5:**
+  1. The Pareto front returned by `nsga2.solve` must be non-empty and all solutions must be feasible.
+  2. The algorithm must be deterministic for a fixed seed.
+  3. The front must beat or equal each baseline (`sort_skill`, `fifo`, `greedy_nearest`) in at least one objective ($f_1$ or $f_2$).
+  4. All returned solutions on the front must be mutually non-dominated.
 - **Acceptance Criterion G6:**
   1. $w=1.0$ strictly favors minimum imbalance ($f_1$).
   2. $w=0.0$ strictly favors minimum waiting time ($f_2$).
