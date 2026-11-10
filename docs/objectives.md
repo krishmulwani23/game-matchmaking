@@ -77,7 +77,19 @@ $$f_2(\mathbf{x}) = \sum_{i : m_i = -1} (w_i + \Delta t)$$
 If all players in the pool are matched ($M = N / (2k)$ and no players left unmatched), $f_2(\mathbf{x}) = 0.0$.
 
 #### Objective 3: Role & Ping Mismatch ($f_3$)
-Measures non-ideal role composition and network dispersion across formed matches. When role or ping information is omitted from the player dataset, $f_3(\mathbf{x}) = 0.0$.
+Measures non-ideal role composition and network dispersion across formed matches. When role or ping information is omitted or not modelled, $f_3(\mathbf{x}) = 0.0$.
+
+For each formed match $m \in \{0, \dots, M-1\}$:
+1. **Role Coverage Deficit:** Given target diversity $K_R = \min(k, |R|)$ where $R$ is the set of available distinct roles in the queue:
+   $$\text{Deficit}(m, t) = \max\left(0, K_R - |\text{roles}(\mathcal{T}_{m, t})|\right), \quad t \in \{0, 1\}$$
+   $$\text{RoleDeficit}_m = \frac{\text{Deficit}(m, 0) + \text{Deficit}(m, 1)}{2}$$
+2. **Ping Spread:** Maximum latency difference across all players in the match:
+   $$\text{PingSpread}_m = \max_{i \in \mathcal{T}_m} \rho_i - \min_{i \in \mathcal{T}_m} \rho_i$$
+3. **Combined Match Mismatch:**
+   $$\text{Mismatch}_m = \text{RoleDeficit}_m + \text{PingSpread}_m$$
+
+The overall mismatch objective $f_3$ is the arithmetic mean across all $M$ formed matches:
+$$f_3(\mathbf{x}) = \begin{cases} \frac{1}{M} \sum_{m=0}^{M-1} \text{Mismatch}_m & \text{if } M > 0 \\ 0.0 & \text{if } M = 0 \text{ or data missing} \end{cases}$$
 
 #### Multi-Objective Evaluation Vector
 $$\mathbf{F}(\mathbf{x}) = [f_1(\mathbf{x}), f_2(\mathbf{x})]^T \quad \text{or} \quad \mathbf{F}(\mathbf{x}) = [f_1(\mathbf{x}), f_2(\mathbf{x}), f_3(\mathbf{x})]^T$$

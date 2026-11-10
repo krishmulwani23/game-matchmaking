@@ -153,8 +153,18 @@ def f2_wait(inst: Instance, sol: Solution) -> float:
 def f3_mismatch(inst: Instance, sol: Solution) -> float:
     """Compute role and ping mismatch penalty across formed matches.
 
-    Returns 0.0 when role or ping data is missing or not modelled.
-    Full role coverage and ping spread logic will be activated in Checkpoint G9.
+    Combines role coverage deficit per team with network latency spread:
+    - For each formed match m:
+        - target_roles = min(inst.k, count_distinct_available_roles)
+        - team_0_deficit = max(0, target_roles - unique_roles(team 0))
+        - team_1_deficit = max(0, target_roles - unique_roles(team 1))
+        - role_deficit = 0.5 * (team_0_deficit + team_1_deficit)
+        - ping_spread = max(ping) - min(ping)
+        - match_mismatch = ping_spread + role_deficit
+    - Overall f3 is the arithmetic mean across all formed matches.
+
+    Returns 0.0 when role or ping data is missing or not modelled,
+    or when no matches are formed.
 
     Parameters
     ----------
@@ -166,7 +176,7 @@ def f3_mismatch(inst: Instance, sol: Solution) -> float:
     Returns
     -------
     float
-        Mismatch objective value (0.0 if role/ping missing).
+        Mismatch objective value (0.0 if role/ping missing or no matches).
     """
     if sol.n_matches() == 0 or len(inst.players) == 0:
         return 0.0
@@ -178,21 +188,43 @@ def f3_mismatch(inst: Instance, sol: Solution) -> float:
     if not (has_roles and has_pings):
         return 0.0
 
-    # Stub when role/ping are present but full G9 model is not yet configured:
-    # return average ping spread across formed matches as baseline
     match = sol.match
     matched_mask = match >= 0
-    pings = np.array([p.ping for p in inst.players], dtype=float)[matched_mask]
+    if not np.any(matched_mask):
+        return 0.0
+
     matched_match_ids = match[matched_mask]
+    matched_teams = sol.team[matched_mask]
+
+    pings = np.array([p.ping for p in inst.players], dtype=float)[matched_mask]
+    roles = np.array([p.role for p in inst.players], dtype=int)[matched_mask]
 
     unique_matches = np.unique(matched_match_ids)
-    spreads = []
-    for m in unique_matches:
-        m_pings = pings[matched_match_ids == m]
-        if len(m_pings) > 1:
-            spreads.append(np.ptp(m_pings))
+    all_distinct_roles = len(set(p.role for p in inst.players if p.role is not None))
+    target_roles = min(inst.k, all_distinct_roles)
 
-    return float(np.mean(spreads)) if spreads else 0.0
+    mismatch_vals: list[float] = []
+    for m in unique_matches:
+        mask_m = matched_match_ids == m
+        m_pings = pings[mask_m]
+        ping_spread = float(np.ptp(m_pings)) if len(m_pings) > 1 else 0.0
+
+        m_teams = matched_teams[mask_m]
+        m_roles = roles[mask_m]
+
+        t0_roles = m_roles[m_teams == 0]
+        t1_roles = m_roles[m_teams == 1]
+
+        u0 = len(np.unique(t0_roles)) if len(t0_roles) > 0 else 0
+        u1 = len(np.unique(t1_roles)) if len(t1_roles) > 0 else 0
+
+        deficit_0 = max(0, target_roles - u0)
+        deficit_1 = max(0, target_roles - u1)
+        role_deficit = 0.5 * (deficit_0 + deficit_1)
+
+        mismatch_vals.append(ping_spread + role_deficit)
+
+    return float(np.mean(mismatch_vals)) if mismatch_vals else 0.0
 
 
 def evaluate(
