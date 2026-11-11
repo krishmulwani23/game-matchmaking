@@ -1,7 +1,7 @@
-# Optimization Algorithms Documentation: Encoding, Repair, NSGA-II & Weighted Metaheuristics (Checkpoints G4, G5 & G6)
+# Optimization Algorithms Documentation: Encoding, Repair, NSGA-II, Weighted Metaheuristics & Hybrid Search (Checkpoints G4, G5, G6 & G11)
 
 **Author:** Member 3 (Vedant)  
-**Milestones:** Checkpoint G4 (Encoding & Repair) | Checkpoint G5 (NSGA-II Optimization) | Checkpoint G6 (Weighted Optimization)
+**Milestones:** Checkpoint G4 (Encoding & Repair) | Checkpoint G5 (NSGA-II Optimization) | Checkpoint G6 (Weighted Optimization) | Checkpoint G11 (Hybrid Greedy + Local Search)  
 **Date:** November 2026  
 
 ---
@@ -181,7 +181,69 @@ Running the optimizer across the weight grid collects a diversified sequence of 
 
 ---
 
-## 7. Verification and Acceptance Standards
+## 7. Hybrid Greedy + Local Search (`hybrid.py`)
+
+Checkpoint G11 implements the memetic / hybrid metaheuristic registered under `@register("hybrid_greedy_ls")` implementing the standard `Matcher` protocol:
+$$\text{solve}(\text{inst}, **\text{kw}) \to \text{list}[\text{Solution}]$$
+
+```mermaid
+flowchart TD
+    SUB["Seed Initial Population via Baselines (greedy_nearest & fifo via registry)"] --> BOUNDS["Compute Baseline Normalization Bounds"]
+    BOUNDS --> SWEEP["For each weight w in [0.0, 0.1, ..., 1.0]"]
+    SWEEP --> INIT["Pick Candidate with best scalarized score J(sol, w)"]
+    INIT --> CHECK{"enable_ls == True?"}
+    CHECK -- Yes --> LS["Swap-based Local Search (Team, Inter-match, Queue swaps)"]
+    CHECK -- No --> PASS["Keep Seed Directly (No LS)"]
+    LS --> COLL["Collect Best Solution"]
+    PASS --> COLL
+    COLL --> FRONT["Filter Non-Dominated Solutions & Deduplicate"]
+    FRONT --> OUT["Return Final Pareto Front (list[Solution])"]
+```
+
+### 7.1 Seeding via Registered Baselines
+Rather than starting from random permutations that require extensive evolutionary repair, `hybrid_greedy_ls` directly seeds its candidate pool using existing baselines accessed via the dynamic registry:
+- `greedy_nearest`: Produces tight skill clustering (optimizing fairness $f_1$).
+- `fifo`: Matches oldest players first (optimizing waiting time $f_2$).
+
+To span the trade-off space across match counts, each baseline's permutation is decoded at variable match counts $M \in [M_{\min}, M_{\max}]$, ensuring diverse queue throughput anchors from the onset.
+
+### 7.2 Swap-Based Local Search Neighborhoods
+When `enable_ls=True`, the algorithm executes local search over three discrete neighborhood operations:
+1. **Intra-Match Team Swaps:** Swaps two players between Team 0 and Team 1 within the same formed match. Because player composition in the match remains unchanged, feasibility (skill gap, ping gap, starvation) is 100% preserved while team skill totals are directly optimized to minimize $f_1$.
+2. **Inter-Match Player Swaps:** Swaps two players across different matches $m_1 \neq m_2$. Accepted only if both matches satisfy pairwise skill and ping constraints, followed by snake draft team balancing.
+3. **Queue-to-Match Swaps:** Swaps a matched non-starving player with an unmatched player from the queue, allowing high-skill-compatible queue players to enter matches when it lowers overall scalarized cost without starving queue participants.
+
+### 7.3 Scalarized Acceptance Criterion
+Moves are evaluated under the scalarized objective:
+$$J(\text{sol}, w) = w \cdot f_{1,\text{norm}} + (1 - w) \cdot f_{2,\text{norm}}$$
+A candidate move is accepted **if and only if**:
+1. The resulting solution is strictly feasible (`is_feasible(inst, candidate) == True`).
+2. The scalarized cost is strictly decreased: $J(\text{cand}, w) < J(\text{curr}, w)$.
+
+### 7.4 Benchmarking Flag (`enable_ls`)
+To allow Member 4 (RAM) to isolate and measure the exact contribution of local search against baseline seeding and plain NSGA-II, the algorithm provides the `enable_ls: bool = True` parameter. When set to `False`, the local search phase is bypassed, returning the non-dominated subset of baseline seeds directly.
+
+### 7.5 Honest Note on Plain NSGA-II vs. Hybrid Search
+> [!IMPORTANT]
+> **"A hybrid is justified only if experiments show a limitation of plain NSGA-II."**
+
+In our empirical experiments (seed 42, $k=2$) across queue scales:
+- **Small queues (`light`, $N=24$):**
+  - **NSGA-II:** Explores a rich set of 11 non-dominated solutions ($\text{HV}=5623.4$, runtime $0.38\,\text{s}$, Spacing $41.32$, $\min f_1=0.00$, $\min f_2=194.40$).
+  - **Hybrid+LS:** Produces 4 non-dominated solutions ($\text{HV}=4461.7$, runtime $0.10\,\text{s}$, Spacing $24.60$, $\min f_1=0.00$, $\min f_2=215.40$).
+  - *Observation:* On small search spaces, NSGA-II's population crossover successfully discovers a finer-grained Pareto front than greedy seeding.
+- **Medium queues (`medium`, $N=100$):**
+  - **NSGA-II:** Struggles under the combinatorial space ($100!$ permutations). In 20 generations ($2.42\,\text{s}$), it attains $\text{HV}=24361.2$, with $\min f_1=2.25$ and $\min f_2=885.60$.
+  - **Hybrid+LS:** Achieves $\text{HV}=44102.5$ ($2.28\,\text{s}$), reaching $\min f_1=0.20$ and $\min f_2=279.80$ across 16 solutions.
+  - *Observation:* Local search substantially enhances greedy seeds (HV improves from $42408.8$ without LS to $44102.5$ with LS, reducing $\min f_1$ from $1.71$ to $0.20$).
+- **Large queues (`heavy`, $N=400$):**
+  - **NSGA-II:** Experiences extreme convergence latency due to random genetic recombination. Across 30.24 seconds, it achieves only $\text{HV}=122864.3$ with $\min f_2=5404.60$.
+  - **Hybrid+LS:** Achieves $\text{HV}=287572.8$ in $15.43\,\text{s}$ with $\min f_2=744.20$.
+  - *Conclusion:* Plain NSGA-II suffers from severe exploration inefficiency on medium-to-large queue sizes, where random permutation crossover fails to assemble tight skill clusters. The hybrid greedy baseline seeding combined with swap local search resolves this limitation by starting from high-quality structural anchors and fine-tuning team fairness.
+
+---
+
+## 8. Verification and Acceptance Standards
 
 - **Acceptance Criterion G4:** At least $99\%$ of repaired random genomes must satisfy `validate.is_feasible(inst, sol) == True` (achieved: 100%).
 - **Acceptance Criterion G5:**
@@ -194,3 +256,10 @@ Running the optimizer across the weight grid collects a diversified sequence of 
   2. $w=0.0$ strictly favors minimum waiting time ($f_2$).
   3. Both `sa_weighted` and `ga_weighted` are strictly deterministic for a fixed seed.
   4. Both algorithms are registered under their standard names and implement the `Matcher` protocol.
+- **Acceptance Criterion G11:**
+  1. `hybrid_greedy_ls` is self-registered and implements the `Matcher` protocol.
+  2. Baseline seeds are retrieved dynamically via `registry.get("greedy_nearest")` and `registry.get("fifo")`.
+  3. Local search strictly accepts only improving, 100% feasible moves.
+  4. The `enable_ls` flag allows disabling local search for ablation benchmarking.
+  5. The algorithm is strictly deterministic for a fixed seed.
+  6. Tuned hyperparameters are recorded in `config/algorithms_tuned.yaml`.

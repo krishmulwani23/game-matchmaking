@@ -1,0 +1,45 @@
+# Matchmaking Optimization - Tuned Algorithm Hyperparameters (Checkpoint G11)
+# Author: Member 3 (Vedant)
+# Based on empirical grid evaluation across light (N=24), medium (N=100), and heavy (N=400) instances.
+
+nsga2:
+  pop_size: 40
+  n_gen: 30
+  crossover_prob: 0.9
+  mutation_prob: 0.25
+  tournament_size: 2
+
+sa_weighted:
+  t_start: 1.0
+  alpha: 0.92
+  steps_per_temp: 15
+  min_temp: 0.01
+
+ga_weighted:
+  pop_size: 30
+  n_gen: 25
+  crossover_prob: 0.9
+  mutation_prob: 0.25
+  elitism: 2
+
+hybrid_greedy_ls:
+  max_evals: 100
+  enable_ls: true
+  weights:
+    - 0.0
+    - 0.1
+    - 0.2
+    - 0.3
+    - 0.4
+    - 0.5
+    - 0.6
+    - 0.7
+    - 0.8
+    - 0.9
+    - 1.0
+
+# Benchmark observations (observed on seed 42):
+# - Light (N=24): NSGA-II finds 11 solutions (HV=5623.4, 0.38s) vs Hybrid+LS (4 sols, HV=4461.7, 0.10s)
+# - Medium (N=100): Hybrid+LS (HV=44102.5, 2.28s) outperforms NSGA-II (HV=24361.2, 2.42s)
+# - Heavy (N=400): Hybrid+LS (HV=287572.8, 15.43s) heavily outperforms NSGA-II (HV=122864.3, 30.24s)
+
