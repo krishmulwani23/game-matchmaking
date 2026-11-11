@@ -27,3 +27,30 @@ algorithms:
   - hybrid_greedy_ls
 
 use_f3: false
+
+scenarios:
+  light:
+    initial_players: 24
+    arrival_rate: 0.6
+    n_rounds: 30
+    burst_prob: 0.0
+    burst_multiplier: 1.0
+  medium:
+    initial_players: 100
+    arrival_rate: 2.0
+    n_rounds: 30
+    burst_prob: 0.0
+    burst_multiplier: 1.0
+  heavy:
+    initial_players: 400
+    arrival_rate: 6.0
+    n_rounds: 30
+    burst_prob: 0.0
+    burst_multiplier: 1.0
+  bursty:
+    initial_players: 24
+    arrival_rate: 0.5
+    n_rounds: 30
+    burst_prob: 0.25
+    burst_multiplier: 5.0
+
