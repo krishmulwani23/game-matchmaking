@@ -208,6 +208,18 @@ A multi-objective optimization approach generates the **Pareto-optimal frontier*
 - **Pareto Efficiency:** A solution $\mathbf{x}_A$ dominates $\mathbf{x}_B$ ($\mathbf{x}_A \prec \mathbf{x}_B$) if $f_1(\mathbf{x}_A) \le f_1(\mathbf{x}_B)$, $f_2(\mathbf{x}_A) \le f_2(\mathbf{x}_B)$, with at least one strict inequality.
 - The Pareto front allows matchmaking architects and operators to choose operational setpoints or employ dynamic relaxation policies (such as our dynamic gap rule $g(w) = g_0 + \alpha w$).
 
+### 3.3 Empirical Conflict Evidence
+
+Empirical findings from our systematic parameter sweeps (`src/mm/conflict_study.py`) and statistical analyses across 513 experimental configurations demonstrate why heuristic sorting cannot trade fairness against waiting, establishing why multi-objective optimization is strictly necessary:
+
+1. **Rigidity of Sorting Heuristics:** Across max wait sweeps from $W_{\max} = 60\text{ s}$ to $240\text{ s}$, `sort_skill` remains locked at an essentially flat $f_1 \approx 5.53\text{ Elo}$ and $f_2 \approx 313.4 - 337.3\text{ s}$. Because skill sorting is blind to elapsed queue time, it cannot dynamically compromise on fairness to flush long-waiting players.
+2. **Catastrophic Failure of FIFO Under Tight Skill Gaps ($\alpha = 0.0$):** When the skill gap relaxation rate is held at $\alpha = 0.0$ (fixed static tolerance $g_0 = 100\text{ Elo}$), `fifo` match rate collapses to **21.2%**, causing backlog waiting time $f_2$ to explode to **4,362.6 s**. The oldest queued players have mutually incompatible skills that violate hard constraints, forcing repair to dissolve matches.
+3. **The Fairness Cost of Relaxation ($\alpha$ Sweep):** Increasing the relaxation rate $\alpha$ from $0.0$ to $2.0$ improves `fifo` match rate from **21.2% to 45.9%** and reduces queue wait by 47.5% (from 4,362.6 s to 2,290.6 s). However, this latency reduction comes at a severe fairness cost: skill imbalance $f_1$ surges by +173%, from **8.00 Elo to 21.85 Elo**.
+4. **Team Capacity Bottleneck ($k$ Sweep):** As team size $k$ scales from $1$ ($2k=2$) to $4$ ($2k=8$), assembling 8 mutually compatible players within dynamic skill windows becomes combinatorially difficult. For `fifo`, match rate collapses from **86.9% down to 11.1%**, while queue wait $f_2$ spikes twenty-fold from **264.2 s to 5,280.6 s**.
+5. **Liquidity Dependency vs. Algorithmic Intelligence:** In sparse queues ($N=24$), `sort_skill` incurs $f_1 = 9.38\text{ Elo}$ and match rate of 72.2%. In dense queues ($N=400$), skill imbalance drops to **1.86 Elo** with 96.0% match rate. This proves that sorting performance is an artifact of queue liquidity rather than optimization capability; when liquidity drops, sorting degrades rapidly.
+6. **Compromise Baselines Still Lack Pareto Flexibility:** `greedy_nearest` provides an intermediate point ($f_1 \approx 7.64\text{ Elo}$, $f_2 \approx 497.2\text{ s}$ at default parameters), yet remains a single static point. It cannot adapt to operational shifts between peak hours (prioritizing throughput) and ranked competitive play (prioritizing fairness).
+7. **Statistical Dominance of Multi-Objective Search:** Wilcoxon signed-rank tests across benchmark seeds confirm that multi-objective evolutionary algorithms (`nsga2` and `hybrid_greedy_ls`) significantly outperform single-minded FIFO in hypervolume (mean advantage $> 193,000$, rank-biserial correlation $r = 1.0$), proving that true Pareto exploration produces superior, non-dominated match configurations that no greedy or sorting baseline can reach.
+
 ---
 
 ## 4. Vectorized Implementation Strategy
