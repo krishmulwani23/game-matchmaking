@@ -414,7 +414,7 @@ def run_experiments(
 
             if verbose:
                 print(f"Suggested Relaxation Rule: {rule.formula_str}")
-                print(f"Saved relaxation table   -> {base_res / 'relaxation_table.csv'}")
+                print(f"Saved relaxation table   -> {raw_dir / 'relaxation_table.csv'}")
 
             # Plot relaxation curve
             rel_fig_path = figures_dir / "relaxation_rule_curve.png"
@@ -539,6 +539,7 @@ def _generate_all_algorithm_figures(
     verbose: bool = True,
 ) -> None:
     """Generate final publication-quality figures comparing all algorithms (Checkpoint G12)."""
+    raw_dir = base_res / "raw"
     op_records: list[dict[str, Any]] = []
 
     for scenario, algo_dict in scenario_points.items():
@@ -625,7 +626,7 @@ def _generate_all_algorithm_figures(
     # Persist operating points summary table
     if op_records:
         op_df = pd.DataFrame(op_records)
-        op_path = base_res / "operating_points.csv"
+        op_path = raw_dir / "operating_points.csv"
         op_df.to_csv(op_path, index=False)
         if verbose:
             print(f"Saved operating points   -> {op_path}")
@@ -643,7 +644,7 @@ def _generate_all_algorithm_figures(
             )
             .reset_index()
         )
-        agg_path = base_res / "metrics_summary.csv"
+        agg_path = raw_dir / "metrics_summary.csv"
         agg_metrics.to_csv(agg_path, index=False)
         if verbose:
             print(f"Saved metrics summary    -> {agg_path}")

@@ -218,12 +218,14 @@ def derive_relaxation_rule(
 
     # Save comparison table if results_dir available
     if results_dir is not None:
-        out_path = Path(results_dir) / "relaxation_table.csv"
+        p_res = Path(results_dir)
+        target_dir = p_res if p_res.name == "raw" else (p_res / "raw")
+        out_path = target_dir / "relaxation_table.csv"
         out_path.parent.mkdir(parents=True, exist_ok=True)
         comp_df.to_csv(out_path, index=False)
     else:
         repo_root = Path(__file__).resolve().parents[2]
-        default_out = repo_root / "results" / "relaxation_table.csv"
+        default_out = repo_root / "results" / "raw" / "relaxation_table.csv"
         default_out.parent.mkdir(parents=True, exist_ok=True)
         comp_df.to_csv(default_out, index=False)
 
@@ -447,10 +449,12 @@ def validate_relaxation_rule(
 
     # Persist validation CSV
     if results_dir is not None:
-        csv_path = Path(results_dir) / "relaxation_validation.csv"
+        p_res = Path(results_dir)
+        target_dir = p_res if p_res.name == "raw" else (p_res / "raw")
+        csv_path = target_dir / "relaxation_validation.csv"
     else:
         repo_root = Path(__file__).resolve().parents[2]
-        csv_path = repo_root / "results" / "relaxation_validation.csv"
+        csv_path = repo_root / "results" / "raw" / "relaxation_validation.csv"
 
     csv_path.parent.mkdir(parents=True, exist_ok=True)
     val_df.to_csv(csv_path, index=False)

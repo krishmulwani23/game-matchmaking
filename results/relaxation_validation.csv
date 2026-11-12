@@ -1,5 +1,0 @@
-scenario,seed,policy,gap0,gap_alpha,matches_formed,players_matched,final_queue_len,mean_queue_len,max_queue_len,mean_wait_sec,max_wait_sec,mean_skill_imbalance,all_feasible
-light,42,Fixed Gap (alpha=0),100.0,0.0,30,120,26.0,28.4,43.0,42.97,160.0,8.75,False
-light,42,Suggested Rule,100.0,0.95,32,128,18.0,21.2,33.0,35.19,130.0,9.39,False
-medium,42,Fixed Gap (alpha=0),100.0,0.0,119,476,40.0,41.05,58.0,38.12,160.0,13.36,False
-medium,42,Suggested Rule,100.0,0.95,118,472,44.0,30.65,44.0,29.09,120.0,15.44,True

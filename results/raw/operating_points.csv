@@ -1,0 +1,4 @@
+scenario,very_fair_f1,very_fair_f2,balanced_f1,balanced_f2,fast_f1,fast_f2
+light,0.0,667.3,2.0125,212.9,13.78,53.1
+medium,0.0,3912.4,3.2079,603.7,6.134,0.0
+heavy,0.6769,10845.2,1.5624,343.3,1.7298,88.4

@@ -97,7 +97,9 @@ def test_derive_relaxation_rule_end_to_end():
 
         assert isinstance(rule, RelaxationRule)
         assert not comp_df.empty
-        out_csv = tmp_path / "relaxation_table.csv"
+        out_csv = tmp_path / "raw" / "relaxation_table.csv"
+        if not out_csv.exists():
+            out_csv = tmp_path / "relaxation_table.csv"
         assert out_csv.exists(), "relaxation_table.csv must be saved to results_dir"
 
 
@@ -124,7 +126,9 @@ def test_validate_relaxation_rule_quick():
         assert "mean_wait_sec" in val_df.columns
         assert "max_queue_len" in val_df.columns
 
-        val_csv = tmp_path / "relaxation_validation.csv"
+        val_csv = tmp_path / "raw" / "relaxation_validation.csv"
+        if not val_csv.exists():
+            val_csv = tmp_path / "relaxation_validation.csv"
         assert val_csv.exists(), "relaxation_validation.csv must be written to disk"
 
 
