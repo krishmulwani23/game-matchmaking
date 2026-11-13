@@ -119,8 +119,8 @@ Second chain: `G0 → G2 → G5/G6 → G11`. **Sarvesh should do G2 (objectives)
 
 Members do not tick boxes themselves (four people editing one file causes merge conflicts). Announce a landed gate in the team chat; Krish merges the PR and updates the box.
 
-- [ ] G0  - [ ] G1  - [ ] G2  - [ ] G3  - [ ] G4  - [ ] G5  - [ ] G6  - [ ] G7
-- [ ] G8  - [ ] G9  - [ ] G10 - [ ] G11 - [ ] G12 - [ ] G13 - [ ] G14 - [ ] G15
+- [x] G0  - [x] G1  - [x] G2  - [x] G3  - [x] G4  - [x] G5  - [x] G6  - [x] G7
+- [x] G8  - [x] G9  - [x] G10 - [x] G11 - [x] G12 - [x] G13 - [x] G14 - [x] G15
 
 ## 10. Daily 5-minute sync (suggested)
 
