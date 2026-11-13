@@ -174,7 +174,8 @@ def main() -> None:
     member_paths, shared_paths = load_owners_config(owners_yaml)
 
     if args.member not in member_paths:
-        print(f"FAIL: Unknown member number {args.member}. Valid members: {sorted(member_paths.keys())}", file=sys.stderr)
+        valid_members = sorted(member_paths.keys())
+        print(f"FAIL: Unknown member number {args.member}. Valid members: {valid_members}", file=sys.stderr)
         sys.exit(1)
 
     allowed_patterns = member_paths[args.member] + shared_paths
